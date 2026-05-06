@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentLens Test App</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    .hero { padding: 2rem; }
+    .cta { padding: 1rem 2rem; font-size: 1.2rem; background: #0066ff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    .secondary { padding: 0.5rem 1rem; background: #eee; border: 1px solid #ccc; cursor: pointer; border-radius: 4px; }
+    form { margin-top: 1rem; }
+    label { display: block; margin-top: 0.5rem; }
+    input, select, textarea { display: block; margin-top: 0.25rem; padding: 0.5rem; width: 300px; }
+    .hidden { display: none; }
+    nav a { margin-right: 1rem; }
+    .tooltip-trigger { position: relative; cursor: pointer; text-decoration: underline; }
+    .tooltip { display: none; position: absolute; background: #333; color: white; padding: 0.5rem; border-radius: 4px; top: -2rem; }
+    .tooltip-trigger:hover .tooltip { display: block; }
+    #result { margin-top: 1rem; padding: 1rem; background: #f0f8ff; display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#contact" aria-label="Contact us">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1>Welcome to Test App</h1>
+      <p>This is a test application for AgentLens integration tests.</p>
+      <button class="cta" data-testid="primary-cta">Get Started</button>
+      <button class="secondary">Learn More</button>
+    </div>
+
+    <section>
+      <h2>Sign Up</h2>
+      <form id="signup-form">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="you@example.com" aria-label="Email">
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter password">
+
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" placeholder="John Doe">
+
+        <label for="country">Country</label>
+        <select id="country" name="country">
+          <option value="">Select country</option>
+          <option value="us">United States</option>
+          <option value="uk">United Kingdom</option>
+          <option value="de">Germany</option>
+        </select>
+
+        <label>
+          <input type="checkbox" id="terms" name="terms"> I agree to the Terms and Conditions
+        </label>
+
+        <button type="submit" class="cta" style="margin-top: 1rem;">Submit</button>
+      </form>
+
+      <div id="result"></div>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <h3>Speed</h3>
+      <p>Blazing fast performance.</p>
+      <h3>Security</h3>
+      <p>Enterprise-grade security.</p>
+    </section>
+
+    <section>
+      <h2>Help</h2>
+      <span class="tooltip-trigger" data-testid="help-tooltip">
+        Hover for help
+        <span class="tooltip">This is a helpful tooltip!</span>
+      </span>
+    </section>
+
+    <!-- Unlabeled button for a11y testing -->
+    <button id="icon-btn" style="padding: 0.5rem;"></button>
+    <!-- Image without alt for a11y testing -->
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="width:1px;height:1px;">
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Test App</p>
+  </footer>
+
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const result = document.getElementById('result');
+      result.style.display = 'block';
+      result.textContent = 'Form submitted successfully!';
+    });
+
+    document.querySelector('.cta[data-testid="primary-cta"]').addEventListener('click', () => {
+      document.querySelector('.hero p').textContent = 'You clicked Get Started!';
+    });
+  </script>
+</body>
+</html>

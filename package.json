@@ -1,0 +1,101 @@
+{
+  "name": "agentlens",
+  "version": "0.1.0",
+  "description": "AI-agent-native web inspector. Semantic page understanding, intent-based actions, context-aware output.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./reporter": {
+      "import": {
+        "types": "./dist/reporter.d.ts",
+        "default": "./dist/reporter.js"
+      },
+      "require": {
+        "types": "./dist/reporter.d.cts",
+        "default": "./dist/reporter.cjs"
+      }
+    },
+    "./fixture": {
+      "import": {
+        "types": "./dist/fixture.d.ts",
+        "default": "./dist/fixture.js"
+      },
+      "require": {
+        "types": "./dist/fixture.d.cts",
+        "default": "./dist/fixture.cjs"
+      }
+    },
+    "./agent": {
+      "import": {
+        "types": "./dist/agent.d.ts",
+        "default": "./dist/agent.js"
+      },
+      "require": {
+        "types": "./dist/agent.d.cts",
+        "default": "./dist/agent.cjs"
+      }
+    }
+  },
+  "bin": {
+    "agentlens": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run",
+    "test:integration": "playwright test",
+    "test:all": "vitest run && playwright test",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "browser",
+    "testing",
+    "web",
+    "automation",
+    "screenshot",
+    "accessibility",
+    "codex",
+    "cursor",
+    "claude",
+    "context",
+    "semantic",
+    "intent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^25.6.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

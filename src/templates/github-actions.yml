@@ -1,0 +1,58 @@
+# GitHub Actions workflow for Playwright tests with AgentLens
+# Copy this to .github/workflows/playwright.yml in your project
+#
+# This workflow:
+# 1. Runs Playwright tests
+# 2. Uploads .agentlens/ artifacts (screenshots, reports)
+# 3. Makes failure reports available as workflow artifacts
+
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        continue-on-error: true
+
+      - name: Upload AgentLens report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentlens-report
+          path: |
+            .agentlens/latest.md
+            .agentlens/latest.html
+            .agentlens/failures.md
+            .agentlens/screenshots/
+          retention-days: 14
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

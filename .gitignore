@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.agentlens/
+.agentsight/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+.wrangler/
+test-results/
