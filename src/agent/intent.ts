@@ -356,7 +356,7 @@ async function handleFillForm(page: Page, _formName: string | undefined, dataStr
     } catch { /* try next */ }
 
     try {
-      await page.locator(`[name="${field}"]`).fill(value);
+      await page.locator(`[name="${cssEscape(field)}"]`).fill(value);
       filled++;
     } catch { /* field not found */ }
   }
