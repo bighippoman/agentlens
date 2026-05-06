@@ -7,6 +7,7 @@ export default defineConfig([
       reporter: "src/reporter.ts",
       fixture: "src/fixture.ts",
       agent: "src/agent/index.ts",
+      browser: "src/browser/index.ts",
     },
     format: ["esm", "cjs"],
     dts: true,

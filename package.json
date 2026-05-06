@@ -46,6 +46,16 @@
         "types": "./dist/agent.d.cts",
         "default": "./dist/agent.cjs"
       }
+    },
+    "./browser": {
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js"
+      },
+      "require": {
+        "types": "./dist/browser.d.cts",
+        "default": "./dist/browser.cjs"
+      }
     }
   },
   "bin": {
@@ -87,6 +97,11 @@
   "license": "MIT",
   "peerDependencies": {
     "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
