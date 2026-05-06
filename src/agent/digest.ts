@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { BrowserPage } from "../browser/page.js";
 import type { ContextBudget, PageComponent, PageDigest } from "./types.js";
 import { AGENT_DEFAULTS } from "./types.js";
 import { detectComponents } from "./components.js";
@@ -12,7 +12,7 @@ import { detectStatus } from "./blockers.js";
  * Target: < 500 tokens for most pages.
  */
 export async function getPageDigest(
-  page: Page,
+  page: BrowserPage,
   budget?: Partial<ContextBudget>
 ): Promise<PageDigest> {
   const maxTokens = budget?.maxTokens ?? AGENT_DEFAULTS.contextBudget.maxTokens;
@@ -20,7 +20,7 @@ export async function getPageDigest(
 
   // Wait briefly for DOM to settle
   try {
-    await page.waitForLoadState("domcontentloaded", { timeout: 3000 });
+    await page.waitForLoad(3000);
   } catch { /* collect whatever is available */ }
 
   const [url, title, components, status] = await Promise.all([

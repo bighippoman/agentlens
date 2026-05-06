@@ -1,38 +1,34 @@
-// Core API
-export { observe, observeResponsive } from "./observe.js";
-export { getVisibleState, setupListeners, drainErrors } from "./visible-state.js";
-export { act } from "./act.js";
-export { uxReport, uxReportHtml } from "./ux-report.js";
+// Agent API
+export { AgentPage } from "./agent/agent-page.js";
+export { getPageDigest } from "./agent/digest.js";
+export { getPageDelta, setBaseline, clearBaseline } from "./agent/delta.js";
+export { detectComponents } from "./agent/components.js";
+export { detectBlockers, detectStatus, waitUntilReady, dismissBlockers } from "./agent/blockers.js";
+export { executeIntent } from "./agent/intent.js";
 
-// Session management
-export { resetSession } from "./session.js";
-
-// Multi-tab
-export { observeAllTabs, waitForNewTab } from "./multi-tab.js";
+// Browser
+export { Browser } from "./browser/browser.js";
+export { BrowserPage } from "./browser/page.js";
 
 // Configuration
 export { loadConfig, resolveOptions, resetConfigCache } from "./config.js";
 
-// Snapshot testing
+// Session
+export { resetSession } from "./session.js";
+
+// Snapshot
 export { matchAgentSnapshot, updateAgentSnapshot, normalizeForSnapshot } from "./snapshot.js";
 
-// Accessibility
-export { auditAccessibility, formatA11yReport } from "./a11y.js";
-export type { A11yViolation } from "./a11y.js";
+// Utilities
+export { slugify, truncate, fuzzyMatch, levenshtein, cssEscape } from "./utils.js";
 
 // Types
 export type {
-  AgentLensOptions,
-  InteractiveElement,
-  VisibleState,
-  Observation,
-  ActionResult,
-  BoundingRect,
-  ObservationLog,
-  StateDiff,
-  ConsoleError,
-  PerformanceMetrics,
-  StorageState,
-} from "./types.js";
+  ComponentType, FormField, NavItem, TableSummary, PageComponent,
+  PageReadiness, PageBlocker, PageStatus, PageDigest, PageDelta,
+  IntentResult, ContextBudget,
+} from "./agent/types.js";
+export { AGENT_DEFAULTS } from "./agent/types.js";
 
-export { DEFAULTS } from "./types.js";
+export type { LaunchOptions, BrowserProcess } from "./browser/launcher.js";
+export type { ConsoleMessage, NetworkResponse } from "./browser/page.js";

@@ -1,7 +1,7 @@
 {
   "name": "agentlens",
-  "version": "0.1.0",
-  "description": "AI-agent-native web inspector. Semantic page understanding, intent-based actions, context-aware output.",
+  "version": "0.2.0",
+  "description": "AI-agent-native web inspector. Zero dependencies. Built on Chrome DevTools Protocol.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -15,26 +15,6 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
-      }
-    },
-    "./reporter": {
-      "import": {
-        "types": "./dist/reporter.d.ts",
-        "default": "./dist/reporter.js"
-      },
-      "require": {
-        "types": "./dist/reporter.d.cts",
-        "default": "./dist/reporter.cjs"
-      }
-    },
-    "./fixture": {
-      "import": {
-        "types": "./dist/fixture.d.ts",
-        "default": "./dist/fixture.js"
-      },
-      "require": {
-        "types": "./dist/fixture.d.cts",
-        "default": "./dist/fixture.cjs"
       }
     },
     "./agent": {
@@ -70,10 +50,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
     "test": "vitest run",
-    "test:integration": "playwright test",
-    "test:all": "vitest run && playwright test",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
@@ -81,30 +58,19 @@
     "ai",
     "agent",
     "browser",
-    "testing",
     "web",
     "automation",
     "screenshot",
-    "accessibility",
-    "codex",
-    "cursor",
-    "claude",
-    "context",
     "semantic",
-    "intent"
+    "intent",
+    "cdp",
+    "chrome",
+    "devtools",
+    "zero-dependency"
   ],
   "author": "",
   "license": "MIT",
-  "peerDependencies": {
-    "@playwright/test": ">=1.40.0"
-  },
-  "peerDependenciesMeta": {
-    "@playwright/test": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
     "@types/node": "^25.6.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",

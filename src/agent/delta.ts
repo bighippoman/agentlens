@@ -1,8 +1,8 @@
-import type { Page } from "@playwright/test";
+import type { BrowserPage } from "../browser/page.js";
 import type { ContextBudget, PageDelta, PageDigest } from "./types.js";
 import { getPageDigest } from "./digest.js";
 
-const previousDigests = new WeakMap<Page, PageDigest>();
+const previousDigests = new WeakMap<BrowserPage, PageDigest>();
 
 /**
  * Get what changed since the last digest for this page.
@@ -12,7 +12,7 @@ const previousDigests = new WeakMap<Page, PageDigest>();
  * meaningful changed.
  */
 export async function getPageDelta(
-  page: Page,
+  page: BrowserPage,
   budget?: Partial<ContextBudget>
 ): Promise<PageDelta> {
   const current = await getPageDigest(page, budget);
@@ -107,14 +107,14 @@ export async function getPageDelta(
 /**
  * Store a digest as the baseline for future delta comparisons.
  */
-export function setBaseline(page: Page, digest: PageDigest): void {
+export function setBaseline(page: BrowserPage, digest: PageDigest): void {
   previousDigests.set(page, digest);
 }
 
 /**
  * Clear the baseline so the next delta returns the full state.
  */
-export function clearBaseline(page: Page): void {
+export function clearBaseline(page: BrowserPage): void {
   previousDigests.delete(page);
 }
 

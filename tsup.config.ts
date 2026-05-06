@@ -4,8 +4,6 @@ export default defineConfig([
   {
     entry: {
       index: "src/index.ts",
-      reporter: "src/reporter.ts",
-      fixture: "src/fixture.ts",
       agent: "src/agent/index.ts",
       browser: "src/browser/index.ts",
     },
@@ -14,7 +12,6 @@ export default defineConfig([
     sourcemap: true,
     clean: true,
     splitting: false,
-    external: ["@playwright/test", "playwright", "playwright-core"],
   },
   {
     entry: {
@@ -24,6 +21,5 @@ export default defineConfig([
     banner: { js: "#!/usr/bin/env node" },
     sourcemap: true,
     splitting: false,
-    external: ["@playwright/test", "playwright", "playwright-core"],
   },
 ]);

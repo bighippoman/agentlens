@@ -1,40 +1,34 @@
-import type { Page, BrowserContext } from "@playwright/test";
+import type { BrowserPage } from "../browser/page.js";
 import type { ContextBudget, IntentResult, PageDelta, PageDigest } from "./types.js";
 import { getPageDigest } from "./digest.js";
 import { getPageDelta, setBaseline, clearBaseline } from "./delta.js";
 import { waitUntilReady, dismissBlockers as dismissBlockersFn } from "./blockers.js";
 import { executeIntent } from "./intent.js";
-import { observe } from "../observe.js";
-import type { Observation } from "../types.js";
 
 /**
- * AgentPage — an AI-agent-native wrapper around a Playwright Page.
+ * AgentPage — an AI-agent-native wrapper around a browser page.
  *
- * Instead of raw DOM operations, AgentPage provides:
- * - page.digest() → compact semantic page model (< 500 tokens)
- * - page.do(intent) → high-level actions ("submit form", "navigate to pricing")
- * - page.whatChanged() → delta from last observation
- * - page.waitUntilReady() → smart waiting (not timers)
- * - page.dismissBlockers() → auto-close modals/banners
- * - page.screenshot(label) → viewport screenshot + observation log
+ * Zero external dependencies. Uses our own browser driver built on Chrome DevTools Protocol.
  *
- * Usage:
  * ```ts
+ * import { Browser } from "agentlens/browser";
+ * import { AgentPage } from "agentlens/agent";
+ *
+ * const browser = await Browser.launch();
+ * const page = await browser.newPage();
  * const agent = new AgentPage(page);
- * const digest = await agent.digest();
- * // digest.text → compact page summary for context window
- * // digest.suggestedAction → what to do next
- * await agent.do("fill form with {email: user@test.com, password: secret}");
- * await agent.do("submit form");
+ *
+ * const digest = await agent.goto("https://myapp.com");
+ * await agent.do("log in with user@test.com / secret");
  * const delta = await agent.whatChanged();
- * // delta.text → only what changed
+ * await browser.close();
  * ```
  */
 export class AgentPage {
-  readonly page: Page;
+  readonly page: BrowserPage;
   private budget: ContextBudget;
 
-  constructor(page: Page, budget?: Partial<ContextBudget>) {
+  constructor(page: BrowserPage, budget?: Partial<ContextBudget>) {
     this.page = page;
     this.budget = {
       maxTokens: budget?.maxTokens ?? 500,
@@ -42,75 +36,40 @@ export class AgentPage {
     };
   }
 
-  /**
-   * Get a compact, semantic digest of the current page.
-   *
-   * The returned `text` field is designed to be dropped directly into
-   * an agent's context window. Typically < 500 tokens.
-   */
+  /** Compact semantic page digest. Typically < 500 tokens. */
   async digest(): Promise<PageDigest> {
     return getPageDigest(this.page, this.budget);
   }
 
-  /**
-   * Execute a high-level intent.
-   *
-   * Examples:
-   * - "submit form"
-   * - "navigate to pricing"
-   * - "log in with user@test.com / password123"
-   * - "search for typescript playwright"
-   * - "fill form with {email: user@test.com, name: John}"
-   * - "dismiss blockers"
-   * - "wait until ready"
-   * - "go back"
-   * - "scroll to footer"
-   */
+  /** Execute a high-level intent: "submit form", "navigate to Pricing", "log in with email / pass" */
   async do(intent: string): Promise<IntentResult> {
     return executeIntent(this.page, intent);
   }
 
-  /**
-   * Get what changed since the last digest/whatChanged call.
-   *
-   * Returns a compact delta — typically < 100 tokens when nothing
-   * meaningful changed. "[no change]" if identical.
-   */
+  /** What changed since last digest/whatChanged. "[no change]" if nothing. */
   async whatChanged(): Promise<PageDelta> {
     return getPageDelta(this.page, this.budget);
   }
 
-  /**
-   * Wait until the page is truly ready for interaction.
-   *
-   * Watches for: network idle, spinners gone, DOM stable.
-   * Unlike setTimeout, this resolves as soon as conditions are met.
-   */
+  /** Smart wait: spinners gone, network idle, DOM stable. */
   async waitUntilReady(timeout?: number): Promise<void> {
     await waitUntilReady(this.page, { timeout });
   }
 
-  /**
-   * Dismiss all dismissable blockers (modals, cookie banners, overlays).
-   */
+  /** Auto-close modals, cookie banners, overlays. */
   async dismissBlockers(): Promise<{ dismissed: number }> {
     const { dismissed } = await dismissBlockersFn(this.page);
     return { dismissed };
   }
 
-  /**
-   * Take a viewport screenshot and log an observation.
-   * Bridges to the original agentlens observe() system.
-   */
-  async screenshot(label: string): Promise<Observation> {
-    return observe(this.page, label);
+  /** Take a viewport screenshot. */
+  async screenshot(path?: string): Promise<Buffer> {
+    return this.page.screenshot({ path });
   }
 
-  /**
-   * Navigate to a URL and wait until ready.
-   */
+  /** Navigate to a URL, wait until ready, return digest. */
   async goto(url: string): Promise<PageDigest> {
-    await this.page.goto(url, { waitUntil: "domcontentloaded" });
+    await this.page.goto(url);
     await waitUntilReady(this.page, { timeout: 10000 });
     clearBaseline(this.page);
     const digest = await this.digest();
@@ -118,18 +77,9 @@ export class AgentPage {
     return digest;
   }
 
-  /**
-   * Set the context budget for digest output.
-   */
+  /** Set the context budget for digest output. */
   setBudget(budget: Partial<ContextBudget>): void {
     if (budget.maxTokens !== undefined) this.budget.maxTokens = budget.maxTokens;
     if (budget.priority !== undefined) this.budget.priority = [...budget.priority];
-  }
-
-  /**
-   * Create an AgentPage for each open tab in the context.
-   */
-  static allTabs(context: BrowserContext, budget?: Partial<ContextBudget>): AgentPage[] {
-    return context.pages().map((p) => new AgentPage(p, budget));
   }
 }
