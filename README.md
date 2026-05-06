@@ -1,29 +1,8 @@
 # agentlens
 
-AI-agent-native web inspector. Semantic page understanding in < 500 tokens.
+Zero-dependency, AI-agent-native web inspector. Semantic page understanding in < 500 tokens.
 
-## The Problem
-
-AI agents burn 90% of their context window trying to understand a web page. A single DOM dump is 50k+ tokens. Traces, videos, and test output make it worse. By the time the agent knows what's on screen, it has no room left to think.
-
-## What AgentLens Does
-
-AgentLens gives AI agents a semantic understanding of web pages — not raw HTML, not flat element lists, but structured components with intent:
-
-```
-Page: My App (https://myapp.com/login)
-Status: ready
-Suggested: fill 2 required field(s) in "Login": Email, Password
-
-[nav] Header: Home, About, Pricing, [Sign In]
-[form] Login: 0/2 filled, 2 required empty, submit: "Sign In"
-    Email *: empty
-    Password *: empty
-[hero] Welcome: CTA: "Get Started"
-Actions: fill "Login" form | submit "Login" form | navigate to "About"
-```
-
-**~120 tokens.** Not 50,000.
+Built from scratch on Chrome DevTools Protocol. No Playwright. No Puppeteer. No runtime dependencies. Just Node.js builtins + Chrome.
 
 ## Install
 
@@ -31,122 +10,123 @@ Actions: fill "Login" form | submit "Login" form | navigate to "About"
 npm install agentlens
 ```
 
+That's it. No browser download step. Uses the Chrome already on your machine.
+
 ## Quick Start
 
-### The Agent API (recommended)
+```ts
+import { Browser } from "agentlens/browser";
+import { AgentPage } from "agentlens/agent";
+
+const browser = await Browser.launch();
+const page = await browser.newPage();
+const agent = new AgentPage(page);
+
+// Understand the page in ~120 tokens
+const digest = await agent.goto("https://myapp.com");
+console.log(digest.text);
+// Page: My App (myapp.com/login)
+// Status: ready
+// Suggested: fill 2 required fields
+//
+// [nav] Header: Home, About, Pricing
+// [form] Login: 0/2 filled
+//     Email *: empty
+//     Password *: empty
+// [hero] Welcome: CTA "Get Started"
+//
+// Actions: fill form | submit | navigate
+
+// Act with intent — not element-level clicks
+await agent.do("log in with user@test.com / secret123");
+
+// Only what changed — not the whole page again
+const delta = await agent.whatChanged();
+console.log(delta.text);
+// Navigated → /dashboard
+// + [nav] Sidebar: Dashboard, Settings
+// - [form] Login
+// Suggested: click "View Tasks"
+
+await browser.close();
+```
+
+## Why
+
+AI agents burn 90% of their context window trying to understand web pages. `page.content()` dumps 50,000 tokens of raw HTML. AgentLens returns ~120 tokens of structured signal.
+
+| | Tokens | What you get |
+|---|--------|-------------|
+| `page.content()` | ~50,000 | Raw HTML noise |
+| `agent.digest()` | ~120 | Semantic components + suggested actions |
+| `agent.whatChanged()` | ~40 | Only the delta |
+| No change | 3 | `"[no change]"` |
+
+## Architecture
+
+```
+agentlens (zero npm dependencies)
+├── browser/     WebSocket client, CDP client, Chrome launcher, BrowserPage
+│                Built on: net, tls, crypto, http, child_process
+├── agent/       Semantic digest, intent actions, delta tracking, blocker detection
+│                Built on: browser/ + page.evaluate()
+└── cli          Config scaffolding, doctor, session management
+```
+
+The only external requirement is Chrome/Chromium installed on the machine.
+
+## Agent API
 
 ```ts
 import { AgentPage } from "agentlens/agent";
 
-const agent = new AgentPage(page);
-const digest = await agent.goto("https://myapp.com");
-// digest.text → compact semantic page model
-// digest.suggestedAction → "fill 2 required fields in Login"
-// digest.tokens → 127
-
-await agent.do("log in with user@test.com / secret123");
-// → finds login form, fills both fields, clicks submit, waits for navigation
-
-const delta = await agent.whatChanged();
-// delta.text → "Navigated → /dashboard\n+ [nav] Sidebar\n- [form] Login"
-// delta.tokens → 42
+agent.digest()           // Semantic page model — components, status, suggestions
+agent.do(intent)         // High-level action — returns result + delta
+agent.whatChanged()      // Only what changed since last check
+agent.waitUntilReady()   // Smart wait — spinners, network, DOM stability
+agent.dismissBlockers()  // Auto-close modals, cookie banners, overlays
+agent.goto(url)          // Navigate + wait + digest
+agent.screenshot(path)   // Viewport screenshot
 ```
 
-### Intent-Based Actions
+### Supported Intents
 
 ```ts
 await agent.do("submit form");
 await agent.do("navigate to Pricing");
-await agent.do("search for typescript testing");
-await agent.do("fill form with {email: user@test.com, name: John}");
+await agent.do("log in with user@test.com / password");
+await agent.do("search for enterprise plan");
+await agent.do("fill form with {email: a@b.com, name: John}");
 await agent.do("dismiss blockers");
 await agent.do("wait until ready");
 await agent.do("scroll to Footer");
 await agent.do("go back");
 ```
 
-### Delta-Aware State
+## Browser API
+
+Direct access to our CDP-based browser when you need lower-level control:
 
 ```ts
-const digest = await agent.digest();     // full page model (~120 tokens)
-// ... agent does things ...
-const delta = await agent.whatChanged();  // only what changed (~40 tokens)
-// "[no change]" if nothing happened (3 tokens)
+import { Browser } from "agentlens/browser";
+
+const browser = await Browser.launch({ headless: true });
+const page = await browser.newPage();
+
+await page.goto("https://example.com");
+const title = await page.title();
+await page.fill("#email", "test@example.com");
+await page.click("button[type=submit]");
+const value = await page.evaluate("document.title");
+const screenshot = await page.screenshot({ path: "shot.png" });
+
+await browser.close();
 ```
-
-### Smart Blocking Detection
-
-```ts
-const digest = await agent.digest();
-// digest.status.readiness → "blocked"
-// digest.suggestedAction → "dismiss cookie banner"
-
-await agent.dismissBlockers();
-```
-
-## API Layers
-
-### Layer 1: Agent API (`agentlens/agent`)
-
-The semantic layer. Understands pages as components, actions as intents.
-
-```ts
-import { AgentPage } from "agentlens/agent";
-
-const agent = new AgentPage(page);
-agent.digest()           // → PageDigest (components, status, suggestions)
-agent.do(intent)         // → IntentResult (success, description, delta)
-agent.whatChanged()      // → PageDelta (only what changed)
-agent.waitUntilReady()   // → smart wait
-agent.dismissBlockers()  // → auto-close modals/banners
-agent.goto(url)          // → navigate + digest
-agent.screenshot(label)  // → viewport screenshot + observation log
-```
-
-### Layer 2: Inspection API (`agentlens`)
-
-Lower-level API for detailed page inspection.
-
-```ts
-import { observe, act, getVisibleState, uxReport } from "agentlens";
-
-await observe(page, "Homepage loaded");
-await act(page, "click Sign In");
-await act(page, "fill Email with test@x.com");
-const state = await getVisibleState(page);
-await uxReport();
-```
-
-## Test Fixture
-
-```ts
-import { test, expect } from "agentlens/fixture";
-
-test("checkout flow", async ({ lens }) => {
-  await lens.page.goto("/checkout");
-  await lens.observe("Checkout page");
-  await lens.act("fill Email with user@test.com");
-  await lens.act("click Place Order");
-  await lens.observe("Confirmation");
-  await lens.uxReport();
-});
-```
-
-## Test Reporter
-
-```ts
-reporter: [
-  ["html"],
-  ["agentlens/reporter"],
-],
-```
-
-Produces `.agentlens/failures.md` — compact failure summaries. Never inlines traces, screenshots, or DOM.
 
 ## CLI
 
 ```bash
-agentlens init              # scaffold config + example test
+agentlens init              # scaffold config + example
 agentlens doctor --fix      # auto-patch test config
 agentlens clean             # clear observation log
 agentlens summarize         # regenerate report
@@ -154,42 +134,37 @@ agentlens diff a.json b.json  # compare runs
 agentlens ci                # generate CI workflow
 ```
 
-## Features
+## Exports
 
-| Feature | What it does |
-|---------|-------------|
-| Semantic digest | Pages as components (forms, nav, modals), not elements |
-| Intent actions | "submit form", "log in with" — not "click button" |
-| Delta tracking | Only what changed since last check |
-| Smart waiting | Watches spinners, network, DOM — not timers |
-| Blocker detection | Auto-detects modals, cookie banners, overlays |
-| Context budget | Configurable token limit with priority truncation |
-| Performance metrics | LCP, CLS, TTFB on demand |
-| A11y audit | Lightweight accessibility check |
-| Snapshot testing | Regression test visible state |
-| HTML report | Self-contained with inline screenshots |
+| Import | What you get |
+|--------|-------------|
+| `agentlens` | Everything — AgentPage, Browser, BrowserPage, utilities |
+| `agentlens/agent` | AgentPage, digest, intents, deltas, blockers |
+| `agentlens/browser` | Browser, BrowserPage, CDP client, WebSocket client |
 
 ## Agent Instructions
 
+Add to your AI agent's system prompt:
+
 ```
-Use agentlens for web page inspection:
+Use agentlens for web inspection:
+- import { Browser } from "agentlens/browser"
 - import { AgentPage } from "agentlens/agent"
-- agent.digest() for page understanding (< 500 tokens)
-- agent.do(intent) for actions
-- agent.whatChanged() for delta updates
-- Never call page.content()
+- agent.digest() for compact page understanding (< 500 tokens)
+- agent.do(intent) for high-level actions
+- agent.whatChanged() for delta-only updates
+- Never call page.content() or innerHTML
 ```
 
-## How It Works
+## Dependencies
 
 ```
-                  ┌──────────────┐     ┌──────────────────────┐
-   Web Page ───► │  AgentLens    │────►│  [form] Login: 0/2   │  ~120 tokens
-                  │  semantic     │     │  [nav] Home, About   │
-                  │  components   │     │  Suggested: fill     │
-                  └──────────────┘     └──────────────────────┘
-
-                                  vs.  page.content() → 50,000 tokens
+runtime:  0
+peer:     0
+built on: node:net, node:tls, node:crypto, node:http,
+          node:child_process, node:fs, node:os, node:path,
+          node:events, node:url
+requires: Chrome or Chromium installed on the machine
 ```
 
 ## License
