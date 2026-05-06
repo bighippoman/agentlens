@@ -60,7 +60,7 @@ Options:
 async function initCommand(): Promise<void> {
   console.log("Initializing agentlens...\n");
 
-  const configContent = `import type { AgentLensOptions } from "agentlens";
+  const configContent = `import type { AgentLensOptions } from "@jnordq/agentlens";
 
 const config: AgentLensOptions = {
   outputDir: ".agentlens",
