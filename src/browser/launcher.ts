@@ -16,8 +16,6 @@ import { get } from "node:http";
 export interface LaunchOptions {
   /** Path to Chrome/Chromium binary. Auto-detected if not provided. */
   executablePath?: string;
-  /** Run headless. Default: true */
-  headless?: boolean;
   /** Viewport width. Default: 1280 */
   width?: number;
   /** Viewport height. Default: 720 */
@@ -110,7 +108,6 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     }
   }
 
-  const headless = options?.headless ?? true;
   const width = options?.width ?? 1280;
   const height = options?.height ?? 720;
 
@@ -142,22 +139,13 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     // Anti-detection: look like a real browser
     "--disable-blink-features=AutomationControlled",
     `--window-size=${width},${height}`,
-    ...(headless
-      ? ["--headless=new"]
-      : ["--no-startup-window"]),
+    "--headless=new",
     ...(options?.args ?? []),
     "about:blank",
   ];
 
-  const env = { ...process.env };
-  // On macOS, prevent the app from appearing in Dock or showing any windows
-  if (process.platform === "darwin" && !headless) {
-    env["LSBackgroundOnly"] = "1";
-  }
-
   const proc = spawn(execPath, args, {
     stdio: ["pipe", "pipe", "pipe"],
-    env,
   });
 
   // Parse the DevTools WebSocket URL from stderr
