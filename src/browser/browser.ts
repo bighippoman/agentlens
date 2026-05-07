@@ -26,11 +26,13 @@ export class Browser {
   private debugPort: number;
   private pages: BrowserPage[] = [];
   private isExternal: boolean;
+  private isHeadless: boolean;
 
-  private constructor(proc: BrowserProcess | null, debugPort: number, isExternal: boolean) {
+  private constructor(proc: BrowserProcess | null, debugPort: number, isExternal: boolean, isHeadless = true) {
     this.proc = proc;
     this.debugPort = debugPort;
     this.isExternal = isExternal;
+    this.isHeadless = isHeadless;
   }
 
   /**
@@ -62,7 +64,7 @@ export class Browser {
     const proc = await launchBrowser(options);
     const portMatch = proc.wsEndpoint.match(/:(\d+)\//);
     const debugPort = portMatch ? parseInt(portMatch[1]!, 10) : 9222;
-    return new Browser(proc, debugPort, false);
+    return new Browser(proc, debugPort, false, options?.headless ?? true);
   }
 
   /**
@@ -126,6 +128,20 @@ export class Browser {
     const page = new BrowserPage(cdp);
     await page.init();
     await page.setViewportSize({ width: 1280, height: 720 });
+
+    // In non-headless mode, minimize the window so it doesn't appear on screen
+    if (!this.isHeadless) {
+      try {
+        const windowId = await cdp.send("Browser.getWindowForTarget");
+        await cdp.send("Browser.setWindowBounds", {
+          windowId: (windowId as { windowId: number }).windowId,
+          bounds: { windowState: "minimized" },
+        });
+      } catch {
+        // Browser.getWindowForTarget may not be available — window stays visible
+      }
+    }
+
     this.pages.push(page);
     return page;
   }

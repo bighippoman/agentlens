@@ -144,7 +144,7 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     `--window-size=${width},${height}`,
     ...(headless
       ? ["--headless=new"]
-      : ["--window-position=-9999,-9999"]),  // Non-headless: move off-screen
+      : ["--window-size=1,1", "--window-position=0,0", "--start-minimized"]),
     ...(options?.args ?? []),
     "about:blank",
   ];
