@@ -149,8 +149,15 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     "about:blank",
   ];
 
+  const env = { ...process.env };
+  // On macOS, prevent the app from appearing in Dock or showing any windows
+  if (process.platform === "darwin" && !headless) {
+    env["LSBackgroundOnly"] = "1";
+  }
+
   const proc = spawn(execPath, args, {
     stdio: ["pipe", "pipe", "pipe"],
+    env,
   });
 
   // Parse the DevTools WebSocket URL from stderr
