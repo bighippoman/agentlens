@@ -1,6 +1,6 @@
 {
   "name": "@jnordq/agentlens",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-agent-native web inspector. Zero dependencies. Built on Chrome DevTools Protocol.",
   "type": "module",
   "main": "./dist/index.cjs",
