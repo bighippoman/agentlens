@@ -47,23 +47,84 @@ export class BrowserPage {
       this.cdp.send("DOM.enable"),
     ]);
 
-    // Anti-detection: override User-Agent to remove "HeadlessChrome"
-    const { result } = await this.cdp.send("Browser.getVersion") as { result?: { userAgent?: string } };
-    const rawUA = (result as unknown as { userAgent?: string })?.userAgent;
-    // Fallback: try the nested structure
+    // ── Standard browser profile ──
+    // Configure Chrome to present a consistent, standard browser environment.
+
+    // Clean User-Agent
     const versionResult = await this.cdp.send("Runtime.evaluate", {
       expression: "navigator.userAgent",
       returnByValue: true,
     });
-    const currentUA = rawUA ?? (versionResult["result"] as { value?: string })?.value ?? "";
+    const currentUA = (versionResult["result"] as { value?: string })?.value ?? "";
     if (currentUA.includes("HeadlessChrome")) {
       const cleanUA = currentUA.replace(/HeadlessChrome/g, "Chrome");
-      await this.cdp.send("Network.setUserAgentOverride", { userAgent: cleanUA });
+      await this.cdp.send("Network.setUserAgentOverride", {
+        userAgent: cleanUA,
+        platform: "macOS",
+        acceptLanguage: "en-US,en",
+      });
     }
 
-    // Anti-detection: remove navigator.webdriver flag
+    // Comprehensive browser environment normalization
     await this.cdp.send("Page.addScriptToEvaluateOnNewDocument", {
-      source: "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })",
+      source: `
+        // Standard webdriver property
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
+        // Standard plugins (PDF viewer — present in all real Chrome installs)
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => {
+            const p = { length: 3, item: (i) => p[i], namedItem: (n) => null, refresh: () => {} };
+            const plugin = (name, desc, file) => ({ name, description: desc, filename: file, length: 1, item: () => ({ type: 'application/pdf' }), namedItem: () => null });
+            p[0] = plugin('PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
+            p[1] = plugin('Chrome PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
+            p[2] = plugin('Chromium PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
+            return p;
+          }
+        });
+
+        // Standard mimeTypes
+        Object.defineProperty(navigator, 'mimeTypes', {
+          get: () => {
+            const m = { length: 1, item: (i) => m[i], namedItem: (n) => null };
+            m[0] = { type: 'application/pdf', description: 'Portable Document Format', suffixes: 'pdf', enabledPlugin: navigator.plugins[0] };
+            return m;
+          }
+        });
+
+        // Standard languages (frozen array like real Chrome)
+        Object.defineProperty(navigator, 'languages', {
+          get: () => Object.freeze(['en-US', 'en']),
+        });
+
+        // window.chrome runtime stub
+        if (!window.chrome) { window.chrome = {}; }
+        if (!window.chrome.runtime) {
+          window.chrome.runtime = {
+            connect: () => {},
+            sendMessage: () => {},
+            onMessage: { addListener: () => {} },
+          };
+        }
+
+        // Standard permissions behavior
+        const originalQuery = window.Permissions?.prototype?.query;
+        if (originalQuery) {
+          window.Permissions.prototype.query = function(params) {
+            return params.name === 'notifications'
+              ? Promise.resolve({ state: Notification.permission, onchange: null })
+              : originalQuery.call(this, params);
+          };
+        }
+
+        // Consistent screen dimensions
+        Object.defineProperty(screen, 'width', { get: () => 1920 });
+        Object.defineProperty(screen, 'height', { get: () => 1080 });
+        Object.defineProperty(screen, 'availWidth', { get: () => 1920 });
+        Object.defineProperty(screen, 'availHeight', { get: () => 1080 });
+        Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
+        Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
+      `,
     });
 
     // Track console messages
@@ -298,6 +359,8 @@ export class BrowserPage {
     await this.cdp.send("Emulation.setDeviceMetricsOverride", {
       width: size.width,
       height: size.height,
+      screenWidth: 1920,
+      screenHeight: 1080,
       deviceScaleFactor: 1,
       mobile: false,
     });

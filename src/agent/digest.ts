@@ -31,12 +31,24 @@ export async function getPageDigest(
   ]);
 
   // Detect bot protection / challenge pages
-  const isBotBlocked = /just a moment|checking your browser|verify you are human|captcha/i.test(title);
+  const isBotBlocked = /just a moment|checking your browser|verify you are human|captcha|access denied|attention required/i.test(title);
   if (isBotBlocked) {
     status.readiness = "blocked";
     status.blockers.push({
       type: "overlay",
-      description: "Bot protection / browser challenge (Cloudflare, Akamai, etc.)",
+      description: "Bot protection challenge page detected. The site is verifying the browser before serving content. This usually resolves by retrying or using a non-headless browser.",
+      dismissable: false,
+      selector: "body",
+    });
+  }
+
+  // Detect empty shell pages (anti-bot serving minimal HTML)
+  const pageSize = await page.evaluate("document.body.innerHTML.length");
+  if (!isBotBlocked && components.length === 0 && typeof pageSize === "number" && pageSize < 2000) {
+    status.readiness = "blocked";
+    status.blockers.push({
+      type: "overlay",
+      description: "Site served a near-empty page. This typically means bot protection is active and blocking content delivery. Try: Browser.launch({ headless: false }) to use a visible browser window.",
       dismissable: false,
       selector: "body",
     });
@@ -76,7 +88,11 @@ function computeSuggestedAction(
 
   // Priority 2: Handle non-dismissable blockers
   if (status.readiness === "loading") return "wait for page to finish loading";
-  if (status.readiness === "blocked") return "a modal or overlay is blocking — cannot interact until resolved";
+  if (status.readiness === "blocked") {
+    const botBlocker = status.blockers.find((b) => b.description.includes("Bot protection") || b.description.includes("near-empty"));
+    if (botBlocker) return botBlocker.description;
+    return "a modal or overlay is blocking — cannot interact until resolved";
+  }
 
   // Priority 3: Fill empty required form fields
   const form = components.find((c) => c.type === "form" && c.fields?.some((f) => f.required && f.empty));
