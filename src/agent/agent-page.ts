@@ -71,8 +71,21 @@ export class AgentPage {
   async goto(url: string): Promise<PageDigest> {
     await this.page.goto(url);
     await waitUntilReady(this.page, { timeout: 10000 });
+    // Give JS-heavy SPAs a moment to render
+    await new Promise((r) => setTimeout(r, 500));
     clearBaseline(this.page);
     const digest = await this.digest();
+
+    // If we got 0 components, the page might still be rendering — retry once
+    if (digest.components.length === 0) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const retry = await getPageDigest(this.page, this.budget);
+      if (retry.components.length > 0) {
+        setBaseline(this.page, retry);
+        return retry;
+      }
+    }
+
     setBaseline(this.page, digest);
     return digest;
   }

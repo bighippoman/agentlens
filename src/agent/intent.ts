@@ -204,8 +204,21 @@ async function handleScroll(page: BrowserPage, target: string): Promise<IntentRe
   if (comp) {
     try { await page.scrollTo(comp.selector); const delta = await getPageDelta(page); return { intent: `scroll to "${target}"`, success: true, description: `Scrolled to "${comp.name}".`, error: null, delta }; } catch { /* fall through */ }
   }
-  // Try scrolling to text
+  // Try scrolling to text or common landmarks
   const found = await page.evaluate((t: string) => {
+    // For "footer"/"bottom", scroll to page bottom
+    if (/footer|bottom|end/i.test(t)) {
+      const footer = document.querySelector('footer, [role="contentinfo"]');
+      if (footer) { (footer as HTMLElement).scrollIntoView({ behavior: "auto", block: "center" }); return true; }
+      window.scrollTo(0, document.body.scrollHeight);
+      return true;
+    }
+    // For "top"/"header", scroll to top
+    if (/top|header|start/i.test(t)) {
+      window.scrollTo(0, 0);
+      return true;
+    }
+    // Try text search
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       if ((walker.currentNode.textContent || "").toLowerCase().includes(t.toLowerCase())) {

@@ -104,18 +104,20 @@ export class BrowserPage {
       throw new Error(`Navigation failed: ${result["errorText"]}`);
     }
     this._url = url;
-    await this.waitForLoad(timeout);
+    // Don't throw on timeout — collect whatever loaded
+    await this.waitForLoad(timeout).catch(() => {});
   }
 
   async goBack(): Promise<void> {
     const history = await this.cdp.send("Page.getNavigationHistory") as {
       currentIndex: number;
-      entries: Array<{ url: string }>;
+      entries: Array<{ id: number; url: string }>;
     };
     if (history.currentIndex > 0) {
       const entry = history.entries[history.currentIndex - 1]!;
-      await this.cdp.send("Page.navigateToHistoryEntry", { entryId: history.currentIndex - 1 });
+      await this.cdp.send("Page.navigateToHistoryEntry", { entryId: entry.id });
       this._url = entry.url;
+      await this.waitForLoad(5000).catch(() => {});
     }
   }
 
