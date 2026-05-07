@@ -7,7 +7,7 @@ Built from scratch on Chrome DevTools Protocol. No Playwright. No Puppeteer. No 
 ## Install
 
 ```bash
-npm install @jnordq/agentlens
+npm install agentlens-ai
 ```
 
 That's it. No browser download step. Uses the Chrome already on your machine.
@@ -15,8 +15,8 @@ That's it. No browser download step. Uses the Chrome already on your machine.
 ## Quick Start
 
 ```ts
-import { Browser } from "@jnordq/agentlens/browser";
-import { AgentPage } from "@jnordq/agentlens/agent";
+import { Browser } from "agentlens-ai/browser";
+import { AgentPage } from "agentlens-ai/agent";
 
 const browser = await Browser.launch();
 const page = await browser.newPage();
@@ -78,7 +78,7 @@ The only external requirement is Chrome/Chromium installed on the machine.
 ## Agent API
 
 ```ts
-import { AgentPage } from "@jnordq/agentlens/agent";
+import { AgentPage } from "agentlens-ai/agent";
 
 agent.digest()           // Semantic page model — components, status, suggestions
 agent.do(intent)         // High-level action — returns result + delta
@@ -108,7 +108,7 @@ await agent.do("go back");
 Direct access to our CDP-based browser when you need lower-level control:
 
 ```ts
-import { Browser } from "@jnordq/agentlens/browser";
+import { Browser } from "agentlens-ai/browser";
 
 const browser = await Browser.launch({ headless: true });
 const page = await browser.newPage();
@@ -148,8 +148,8 @@ Add to your AI agent's system prompt:
 
 ```
 Use agentlens for web inspection:
-- import { Browser } from "@jnordq/agentlens/browser"
-- import { AgentPage } from "@jnordq/agentlens/agent"
+- import { Browser } from "agentlens-ai/browser"
+- import { AgentPage } from "agentlens-ai/agent"
 - agent.digest() for compact page understanding (< 500 tokens)
 - agent.do(intent) for high-level actions
 - agent.whatChanged() for delta-only updates

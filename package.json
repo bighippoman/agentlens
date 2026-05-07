@@ -1,5 +1,5 @@
 {
-  "name": "@jnordq/agentlens",
+  "name": "agentlens-ai",
   "version": "1.2.0",
   "description": "AI-agent-native web inspector. Zero dependencies. Built on Chrome DevTools Protocol.",
   "type": "module",
