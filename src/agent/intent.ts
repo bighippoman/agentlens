@@ -90,11 +90,29 @@ async function handleLogin(page: BrowserPage, email: string, password: string): 
 async function handleSearch(page: BrowserPage, query: string): Promise<IntentResult> {
   try {
     await page.evaluate((q: string) => {
-      const input = document.querySelector('input[type="search"], input[name*="search"], input[name*="query"], input[name*="q"], input[placeholder*="Search" i], input[aria-label*="Search" i], [role="searchbox"]') as HTMLInputElement | null;
+      const selectors = [
+        'input[type="search"]',
+        'input[name="q"]',
+        'textarea[name="q"]',
+        '[role="searchbox"]',
+        '[role="combobox"][name*="q"]',
+        'input[name*="search"]',
+        'input[name*="query"]',
+        'input[placeholder*="Search" i]',
+        'input[aria-label*="Search" i]',
+        'textarea[aria-label*="Search" i]',
+        'textarea[role="combobox"]',
+      ];
+      let input: HTMLInputElement | HTMLTextAreaElement | null = null;
+      for (const sel of selectors) {
+        input = document.querySelector(sel) as HTMLInputElement | null;
+        if (input) break;
+      }
       if (!input) throw new Error("No search input found");
       input.focus();
       input.value = q;
       input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     }, query);
     await page.press("Enter");
     await page.waitForNetworkIdle(5000).catch(() => {});

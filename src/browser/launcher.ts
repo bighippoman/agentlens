@@ -40,7 +40,7 @@ export interface BrowserProcess {
 /**
  * Find Chrome/Chromium on the system.
  */
-export function findChrome(): string | null {
+export async function findChrome(): Promise<string | null> {
   const platform = process.platform;
 
   const candidates: string[] = [];
@@ -76,16 +76,14 @@ export function findChrome(): string | null {
   }
 
   // Check which exists
-  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
+  const { execFileSync } = await import("node:child_process");
+  const { accessSync } = await import("node:fs");
   for (const candidate of candidates) {
     try {
-      // For absolute paths, check if file exists
       if (candidate.includes("/") || candidate.includes("\\")) {
-        const { accessSync } = require("node:fs") as typeof import("node:fs");
         accessSync(candidate);
         return candidate;
       }
-      // For bare names, check if they're in PATH
       execFileSync("which", [candidate], { stdio: "ignore" });
       return candidate;
     } catch {
@@ -100,7 +98,7 @@ export function findChrome(): string | null {
  * Launch a headless Chrome and return the DevTools connection info.
  */
 export async function launchBrowser(options?: LaunchOptions): Promise<BrowserProcess> {
-  const execPath = options?.executablePath ?? findChrome();
+  const execPath = options?.executablePath ?? await findChrome();
   if (!execPath) {
     throw new Error(
       "Chrome/Chromium not found. Install Chrome or pass executablePath.\n" +
