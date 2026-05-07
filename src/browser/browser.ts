@@ -26,13 +26,11 @@ export class Browser {
   private debugPort: number;
   private pages: BrowserPage[] = [];
   private isExternal: boolean;
-  private isHeadless: boolean;
 
-  private constructor(proc: BrowserProcess | null, debugPort: number, isExternal: boolean, isHeadless = true) {
+  private constructor(proc: BrowserProcess | null, debugPort: number, isExternal: boolean) {
     this.proc = proc;
     this.debugPort = debugPort;
     this.isExternal = isExternal;
-    this.isHeadless = isHeadless;
   }
 
   /**
@@ -64,7 +62,7 @@ export class Browser {
     const proc = await launchBrowser(options);
     const portMatch = proc.wsEndpoint.match(/:(\d+)\//);
     const debugPort = portMatch ? parseInt(portMatch[1]!, 10) : 9222;
-    return new Browser(proc, debugPort, false, options?.headless ?? true);
+    return new Browser(proc, debugPort, false);
   }
 
   /**
@@ -113,14 +111,31 @@ export class Browser {
   async newPage(): Promise<BrowserPage> {
     let wsUrl: string;
 
+    // Try HTTP endpoint first, then look for existing targets
     try {
       const target = await createTarget(this.debugPort);
       wsUrl = target.webSocketDebuggerUrl;
     } catch {
-      const targets = await getTargetsFromPort(this.debugPort);
-      const pageTarget = targets.find((t) => t.type === "page");
-      if (!pageTarget) throw new Error("No available page target found");
-      wsUrl = pageTarget.webSocketDebuggerUrl;
+      // HTTP create failed — try connecting to browser-level CDP to create a target
+      try {
+        const browserWs = await this.getBrowserWsUrl();
+        const browserCdp = new CDPClient();
+        await browserCdp.connect(browserWs);
+        const result = await browserCdp.send("Target.createTarget", { url: "about:blank" });
+        const targetId = (result as { targetId: string }).targetId;
+        browserCdp.close();
+        // Get the WebSocket URL for the new target
+        const targets = await getTargetsFromPort(this.debugPort);
+        const newTarget = targets.find((t) => t.id === targetId) ?? targets.find((t) => t.type === "page");
+        if (!newTarget) throw new Error("Created target but cannot find it");
+        wsUrl = newTarget.webSocketDebuggerUrl;
+      } catch {
+        // Last resort: find any existing page target
+        const targets = await getTargetsFromPort(this.debugPort);
+        const pageTarget = targets.find((t) => t.type === "page");
+        if (!pageTarget) throw new Error("No available page target found. If using --no-startup-window, a target must be created via CDP.");
+        wsUrl = pageTarget.webSocketDebuggerUrl;
+      }
     }
 
     const cdp = new CDPClient();
@@ -128,19 +143,6 @@ export class Browser {
     const page = new BrowserPage(cdp);
     await page.init();
     await page.setViewportSize({ width: 1280, height: 720 });
-
-    // In non-headless mode, minimize the window so it doesn't appear on screen
-    if (!this.isHeadless) {
-      try {
-        const windowId = await cdp.send("Browser.getWindowForTarget");
-        await cdp.send("Browser.setWindowBounds", {
-          windowId: (windowId as { windowId: number }).windowId,
-          bounds: { windowState: "minimized" },
-        });
-      } catch {
-        // Browser.getWindowForTarget may not be available — window stays visible
-      }
-    }
 
     this.pages.push(page);
     return page;
@@ -162,6 +164,23 @@ export class Browser {
 
   get wsEndpoint(): string {
     return this.proc?.wsEndpoint ?? `ws://127.0.0.1:${this.debugPort}`;
+  }
+
+  private async getBrowserWsUrl(): Promise<string> {
+    if (this.proc?.wsEndpoint) return this.proc.wsEndpoint;
+    // Fetch from /json/version endpoint
+    return new Promise((resolve, reject) => {
+      get(`http://127.0.0.1:${this.debugPort}/json/version`, (res) => {
+        let data = "";
+        res.on("data", (chunk: string) => { data += chunk; });
+        res.on("end", () => {
+          try {
+            const info = JSON.parse(data) as { webSocketDebuggerUrl: string };
+            resolve(info.webSocketDebuggerUrl);
+          } catch (e) { reject(e); }
+        });
+      }).on("error", reject);
+    });
   }
 }
 
