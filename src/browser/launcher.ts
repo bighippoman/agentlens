@@ -115,7 +115,7 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
 
   const args = [
     `--user-data-dir=${userDataDir}`,
-    "--remote-debugging-port=0", // Auto-assign port
+    "--remote-debugging-port=0",
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-background-networking",
@@ -135,6 +135,8 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     "--metrics-recording-only",
     "--no-sandbox",
     "--safebrowsing-disable-auto-update",
+    // Anti-detection: look like a real browser
+    "--disable-blink-features=AutomationControlled",
     `--window-size=${width},${height}`,
     ...(headless ? ["--headless=new"] : []),
     ...(options?.args ?? []),

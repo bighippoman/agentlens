@@ -47,6 +47,25 @@ export class BrowserPage {
       this.cdp.send("DOM.enable"),
     ]);
 
+    // Anti-detection: override User-Agent to remove "HeadlessChrome"
+    const { result } = await this.cdp.send("Browser.getVersion") as { result?: { userAgent?: string } };
+    const rawUA = (result as unknown as { userAgent?: string })?.userAgent;
+    // Fallback: try the nested structure
+    const versionResult = await this.cdp.send("Runtime.evaluate", {
+      expression: "navigator.userAgent",
+      returnByValue: true,
+    });
+    const currentUA = rawUA ?? (versionResult["result"] as { value?: string })?.value ?? "";
+    if (currentUA.includes("HeadlessChrome")) {
+      const cleanUA = currentUA.replace(/HeadlessChrome/g, "Chrome");
+      await this.cdp.send("Network.setUserAgentOverride", { userAgent: cleanUA });
+    }
+
+    // Anti-detection: remove navigator.webdriver flag
+    await this.cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+      source: "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })",
+    });
+
     // Track console messages
     this.cdp.on("Runtime.consoleAPICalled", (params) => {
       const type = params["type"] as string;
