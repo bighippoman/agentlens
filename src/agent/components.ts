@@ -38,14 +38,24 @@ export async function detectComponents(page: BrowserPage): Promise<PageComponent
 
     function isVisible(el: Element): boolean {
       const htmlEl = el as HTMLElement;
-      if (htmlEl.offsetParent === null) {
-        const pos = getComputedStyle(htmlEl).position;
-        if (pos !== "fixed" && pos !== "sticky") return false;
-      }
-      if (getComputedStyle(htmlEl).display === "none") return false;
-      if (getComputedStyle(htmlEl).visibility === "hidden") return false;
+      const style = getComputedStyle(htmlEl);
+      // Hard invisible: display none or visibility hidden
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      // Check computed dimensions via rect (works for all positioning)
       const rect = htmlEl.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
+      if (rect.width === 0 && rect.height === 0) {
+        // Zero-size but might have visible children (common in flex/grid layouts)
+        if (htmlEl.children.length > 0 && htmlEl.children[0]) {
+          const childRect = htmlEl.children[0].getBoundingClientRect();
+          if (childRect.width === 0 && childRect.height === 0) return false;
+          // Parent is zero but children are visible — treat as visible
+          return true;
+        }
+        return false;
+      }
+      // Opacity 0 is invisible
+      if (style.opacity === "0") return false;
+      return true;
     }
 
     function collectActions(el: Element): string[] {

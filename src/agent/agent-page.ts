@@ -71,12 +71,22 @@ export class AgentPage {
   async goto(url: string): Promise<PageDigest> {
     await this.page.goto(url);
     await waitUntilReady(this.page, { timeout: 10000 });
-    // Give JS-heavy SPAs a moment to render
-    await new Promise((r) => setTimeout(r, 500));
+
+    // Wait for DOM to stabilize (mutations stop for 500ms)
+    await this.page.evaluate(`new Promise(resolve => {
+      let timer;
+      const observer = new MutationObserver(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { observer.disconnect(); resolve(); }, 500);
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      timer = setTimeout(() => { observer.disconnect(); resolve(); }, 3000);
+    })`);
+
     clearBaseline(this.page);
     const digest = await this.digest();
 
-    // If we got 0 components, the page might still be rendering — retry once
+    // If 0 components, one more attempt after additional wait
     if (digest.components.length === 0) {
       await new Promise((r) => setTimeout(r, 2000));
       const retry = await getPageDigest(this.page, this.budget);

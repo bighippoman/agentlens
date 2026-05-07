@@ -48,9 +48,8 @@ export class BrowserPage {
     ]);
 
     // ── Standard browser profile ──
-    // Configure Chrome to present a consistent, standard browser environment.
 
-    // Clean User-Agent
+    // Clean User-Agent and platform
     const versionResult = await this.cdp.send("Runtime.evaluate", {
       expression: "navigator.userAgent",
       returnByValue: true,
@@ -60,70 +59,134 @@ export class BrowserPage {
       const cleanUA = currentUA.replace(/HeadlessChrome/g, "Chrome");
       await this.cdp.send("Network.setUserAgentOverride", {
         userAgent: cleanUA,
-        platform: "macOS",
+        platform: "MacIntel",
         acceptLanguage: "en-US,en",
       });
     }
 
-    // Comprehensive browser environment normalization
+    // Comprehensive environment normalization.
+    // Every patched function preserves native toString() to pass integrity checks.
     await this.cdp.send("Page.addScriptToEvaluateOnNewDocument", {
       source: `
-        // Standard webdriver property
+        // ── Utility: make a function look native ──
+        const _native = (fn, name) => {
+          const handler = {
+            apply: (target, thisArg, args) => Reflect.apply(target, thisArg, args),
+            get: (target, prop) => {
+              if (prop === 'toString') return () => 'function ' + (name || target.name || '') + '() { [native code] }';
+              return Reflect.get(target, prop);
+            }
+          };
+          return new Proxy(fn, handler);
+        };
+
+        // ── 1. navigator.webdriver ──
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
-        // Standard plugins (PDF viewer — present in all real Chrome installs)
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => {
-            const p = { length: 3, item: (i) => p[i], namedItem: (n) => null, refresh: () => {} };
-            const plugin = (name, desc, file) => ({ name, description: desc, filename: file, length: 1, item: () => ({ type: 'application/pdf' }), namedItem: () => null });
-            p[0] = plugin('PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
-            p[1] = plugin('Chrome PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
-            p[2] = plugin('Chromium PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer');
-            return p;
-          }
-        });
+        // ── 2. navigator.plugins (with native-looking toString) ──
+        const _mkPlugin = (name, desc, file) => {
+          const mimeType = { type: 'application/pdf', description: 'Portable Document Format', suffixes: 'pdf' };
+          const p = { name, description: desc, filename: file, length: 1 };
+          p[0] = mimeType;
+          mimeType.enabledPlugin = p;
+          p.item = _native(i => p[i], 'item');
+          p.namedItem = _native(n => null, 'namedItem');
+          Object.setPrototypeOf(p, Plugin.prototype);
+          return p;
+        };
+        const _plugins = [
+          _mkPlugin('PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer'),
+          _mkPlugin('Chrome PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer'),
+          _mkPlugin('Chromium PDF Viewer', 'Portable Document Format', 'internal-pdf-viewer'),
+        ];
+        const _pluginArray = {
+          length: 3,
+          item: _native(i => _plugins[i], 'item'),
+          namedItem: _native(n => _plugins.find(p => p.name === n) || null, 'namedItem'),
+          refresh: _native(() => {}, 'refresh'),
+          [Symbol.iterator]: function*() { yield* _plugins; },
+        };
+        _plugins.forEach((p, i) => _pluginArray[i] = p);
+        Object.setPrototypeOf(_pluginArray, PluginArray.prototype);
+        Object.defineProperty(navigator, 'plugins', { get: () => _pluginArray });
 
-        // Standard mimeTypes
-        Object.defineProperty(navigator, 'mimeTypes', {
-          get: () => {
-            const m = { length: 1, item: (i) => m[i], namedItem: (n) => null };
-            m[0] = { type: 'application/pdf', description: 'Portable Document Format', suffixes: 'pdf', enabledPlugin: navigator.plugins[0] };
-            return m;
-          }
-        });
+        // ── 3. navigator.mimeTypes ──
+        const _mimes = [{ type: 'application/pdf', description: 'Portable Document Format', suffixes: 'pdf', enabledPlugin: _plugins[0] }];
+        const _mimeArray = {
+          length: 1,
+          item: _native(i => _mimes[i], 'item'),
+          namedItem: _native(n => _mimes.find(m => m.type === n) || null, 'namedItem'),
+          [Symbol.iterator]: function*() { yield* _mimes; },
+        };
+        _mimes.forEach((m, i) => _mimeArray[i] = m);
+        Object.setPrototypeOf(_mimeArray, MimeTypeArray.prototype);
+        Object.defineProperty(navigator, 'mimeTypes', { get: () => _mimeArray });
 
-        // Standard languages (frozen array like real Chrome)
+        // ── 4. navigator.languages ──
         Object.defineProperty(navigator, 'languages', {
           get: () => Object.freeze(['en-US', 'en']),
         });
 
-        // window.chrome runtime stub
-        if (!window.chrome) { window.chrome = {}; }
-        if (!window.chrome.runtime) {
-          window.chrome.runtime = {
-            connect: () => {},
-            sendMessage: () => {},
-            onMessage: { addListener: () => {} },
-          };
-        }
+        // ── 5. navigator.platform ──
+        Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
 
-        // Standard permissions behavior
-        const originalQuery = window.Permissions?.prototype?.query;
-        if (originalQuery) {
-          window.Permissions.prototype.query = function(params) {
-            return params.name === 'notifications'
-              ? Promise.resolve({ state: Notification.permission, onchange: null })
-              : originalQuery.call(this, params);
-          };
-        }
+        // ── 6. window.chrome (must look like real Chrome object) ──
+        if (!window.chrome) window.chrome = {};
+        window.chrome.app = { isInstalled: false, getDetails: _native(() => null, 'getDetails'), getIsInstalled: _native(() => false, 'getIsInstalled'), installState: _native(() => 'disabled', 'installState'), runningState: _native(() => 'cannot_run', 'runningState') };
+        window.chrome.runtime = {
+          OnInstalledReason: { CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' },
+          OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' },
+          PlatformArch: { ARM: 'arm', ARM64: 'arm64', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86-32', X86_64: 'x86-64' },
+          PlatformNaclArch: { ARM: 'arm', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86-32', X86_64: 'x86-64' },
+          PlatformOs: { ANDROID: 'android', CROS: 'cros', FUCHSIA: 'fuchsia', LINUX: 'linux', MAC: 'mac', OPENBSD: 'openbsd', WIN: 'win' },
+          RequestUpdateCheckStatus: { NO_UPDATE: 'no_update', THROTTLED: 'throttled', UPDATE_AVAILABLE: 'update_available' },
+          connect: _native(() => { throw new Error('Could not establish connection.'); }, 'connect'),
+          sendMessage: _native(() => { throw new Error('Could not establish connection.'); }, 'sendMessage'),
+          id: undefined,
+        };
 
-        // Consistent screen dimensions
+        // ── 7. WebGL renderer/vendor (spoof away SwiftShader) ──
+        const _origGetParam = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = _native(function(param) {
+          const UNMASKED_VENDOR = 0x9245;
+          const UNMASKED_RENDERER = 0x9246;
+          if (param === UNMASKED_VENDOR || param === 37445) return 'Google Inc. (Apple)';
+          if (param === UNMASKED_RENDERER || param === 37446) return 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)';
+          return _origGetParam.call(this, param);
+        }, 'getParameter');
+        const _origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
+        WebGL2RenderingContext.prototype.getParameter = _native(function(param) {
+          const UNMASKED_VENDOR = 0x9245;
+          const UNMASKED_RENDERER = 0x9246;
+          if (param === UNMASKED_VENDOR || param === 37445) return 'Google Inc. (Apple)';
+          if (param === UNMASKED_RENDERER || param === 37446) return 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)';
+          return _origGetParam2.call(this, param);
+        }, 'getParameter');
+
+        // ── 8. outerWidth/outerHeight (headless returns 0, real Chrome returns window size) ──
+        Object.defineProperty(window, 'outerWidth', { get: () => window.innerWidth + 16 });
+        Object.defineProperty(window, 'outerHeight', { get: () => window.innerHeight + 88 });
+
+        // ── 9. Screen dimensions ──
         Object.defineProperty(screen, 'width', { get: () => 1920 });
         Object.defineProperty(screen, 'height', { get: () => 1080 });
         Object.defineProperty(screen, 'availWidth', { get: () => 1920 });
-        Object.defineProperty(screen, 'availHeight', { get: () => 1080 });
-        Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
-        Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
+        Object.defineProperty(screen, 'availHeight', { get: () => 1048 });
+        Object.defineProperty(screen, 'colorDepth', { get: () => 30 });
+        Object.defineProperty(screen, 'pixelDepth', { get: () => 30 });
+
+        // ── 10. Permissions API normalization ──
+        const _origPermQuery = Permissions.prototype.query;
+        Permissions.prototype.query = _native(function(desc) {
+          if (desc.name === 'notifications') {
+            return Promise.resolve({ state: Notification.permission, onchange: null });
+          }
+          return _origPermQuery.call(this, desc);
+        }, 'query');
+
+        // ── 11. Prevent iframe contentWindow detection ──
+        const _origHTMLIFrameElement = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
+        // Keep default behavior but ensure consistency
       `,
     });
 
