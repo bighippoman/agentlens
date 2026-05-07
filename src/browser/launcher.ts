@@ -98,12 +98,16 @@ export async function findChrome(): Promise<string | null> {
  * Launch a headless Chrome and return the DevTools connection info.
  */
 export async function launchBrowser(options?: LaunchOptions): Promise<BrowserProcess> {
-  const execPath = options?.executablePath ?? await findChrome();
+  let execPath = options?.executablePath ?? await findChrome();
+
+  // No system Chrome found — try cached download, then auto-download
   if (!execPath) {
-    throw new Error(
-      "Chrome/Chromium not found. Install Chrome or pass executablePath.\n" +
-      "Checked: Google Chrome, Chromium, Microsoft Edge"
-    );
+    const { getCachedChromium, ensureChromium } = await import("./download.js");
+    execPath = await getCachedChromium();
+    if (!execPath) {
+      console.log("No Chrome found on system. Downloading Chrome for Testing...");
+      execPath = await ensureChromium({ verbose: true });
+    }
   }
 
   const headless = options?.headless ?? true;

@@ -27,6 +27,12 @@ async function main(): Promise<void> {
     case "ci":
       await ciCommand();
       break;
+    case "install-browser":
+      await installBrowserCommand();
+      break;
+    case "browser-status":
+      await browserStatusCommand();
+      break;
     case "--help":
     case "-h":
     case undefined:
@@ -41,16 +47,18 @@ async function main(): Promise<void> {
 
 function printHelp(): void {
   console.log(`
-agentlens - Context-safe Playwright helper for AI agents
+agentlens - Zero-dependency AI web inspector
 
 Commands:
-  init           Scaffold agentlens config, example test, and agent brief
-  summarize      Regenerate latest.md from latest.json
-  doctor         Check playwright.config.ts for recommended settings
-  doctor --fix   Auto-patch playwright.config.ts with missing settings
-  clean          Clear observation log, screenshots, and reports
-  diff [a] [b]   Compare two observation logs (default: compare latest with previous)
-  ci             Generate a GitHub Actions workflow for Playwright + AgentLens
+  init              Scaffold config and example test
+  install-browser   Download Chromium (if no system Chrome found)
+  browser-status    Show browser detection status
+  summarize         Regenerate latest.md from latest.json
+  doctor            Check test config for recommended settings
+  doctor --fix      Auto-patch test config
+  clean             Clear observation log, screenshots, and reports
+  diff [a] [b]      Compare two observation logs
+  ci                Generate a GitHub Actions workflow
 
 Options:
   --help, -h     Show this help message
@@ -534,6 +542,51 @@ async function writeFileIfNotExists(path: string, content: string): Promise<void
     console.log(`  (skipped) ${path} already exists`);
   } catch {
     await writeFile(path, content, "utf-8");
+  }
+}
+
+async function installBrowserCommand(): Promise<void> {
+  const { ensureChromium, getCachedVersion } = await import("./browser/download.js");
+
+  const existing = await getCachedVersion();
+  if (existing) {
+    console.log(`Chromium ${existing} already installed.`);
+    console.log("Run with --force to re-download (not yet implemented — delete ~/.agentlens/chromium/ manually).");
+    return;
+  }
+
+  await ensureChromium({ verbose: true });
+}
+
+async function browserStatusCommand(): Promise<void> {
+  const { findChrome } = await import("./browser/launcher.js");
+  const { getCachedChromium, getCachedVersion } = await import("./browser/download.js");
+
+  console.log("Browser detection:\n");
+
+  const systemChrome = await findChrome();
+  if (systemChrome) {
+    console.log(`  System Chrome: ${systemChrome}`);
+  } else {
+    console.log("  System Chrome: not found");
+  }
+
+  const cached = await getCachedChromium();
+  const version = await getCachedVersion();
+  if (cached) {
+    console.log(`  Bundled Chrome: ${cached} (v${version})`);
+  } else {
+    console.log("  Bundled Chrome: not downloaded");
+  }
+
+  console.log("");
+  if (systemChrome) {
+    console.log("AgentLens will use system Chrome.");
+  } else if (cached) {
+    console.log("AgentLens will use the bundled Chrome.");
+  } else {
+    console.log("No browser available. AgentLens will auto-download Chrome for Testing on first launch.");
+    console.log("Or run: agentlens install-browser");
   }
 }
 
