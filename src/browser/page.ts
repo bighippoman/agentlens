@@ -10,9 +10,21 @@
  * Zero npm dependencies.
  */
 
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, readFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { CDPClient } from "./cdp.js";
+
+export interface CookieData {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expires?: number;
+  size?: number;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: string;
+}
 
 export interface ConsoleMessage {
   type: string;
@@ -533,16 +545,37 @@ export class BrowserPage {
 
   // ── Cookies ──
 
-  async getCookies(): Promise<Array<{ name: string; domain: string; path: string; secure: boolean; httpOnly: boolean }>> {
+  async getCookies(): Promise<CookieData[]> {
     const result = await this.cdp.send("Network.getCookies");
-    const cookies = result["cookies"] as Array<{ name: string; domain: string; path: string; secure: boolean; httpOnly: boolean }>;
-    return cookies.map((c) => ({
-      name: c.name,
-      domain: c.domain,
-      path: c.path,
-      secure: c.secure,
-      httpOnly: c.httpOnly,
-    }));
+    const cookies = result["cookies"] as CookieData[];
+    return cookies;
+  }
+
+  async setCookies(cookies: CookieData[]): Promise<void> {
+    await this.cdp.send("Network.setCookies", { cookies });
+  }
+
+  /**
+   * Save all cookies to a JSON file.
+   * Restore them later with loadCookies() to skip Turnstile/login.
+   */
+  async saveCookies(filePath: string): Promise<void> {
+    const cookies = await this.getCookies();
+    await writeFile(filePath, JSON.stringify(cookies, null, 2), "utf-8");
+  }
+
+  /**
+   * Load cookies from a JSON file saved by saveCookies().
+   * Call this before navigating to restore a previous session.
+   */
+  async loadCookies(filePath: string): Promise<void> {
+    try {
+      const data = await readFile(filePath, "utf-8");
+      const cookies = JSON.parse(data) as CookieData[];
+      await this.setCookies(cookies);
+    } catch {
+      // File doesn't exist or is invalid — start fresh
+    }
   }
 
   // ── Close ──

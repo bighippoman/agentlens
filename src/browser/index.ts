@@ -5,4 +5,4 @@ export { WebSocketClient } from "./ws.js";
 export { launchBrowser, findChrome } from "./launcher.js";
 export { ensureChromium, getCachedChromium, getCachedVersion, removeCachedChromium } from "./download.js";
 export type { LaunchOptions, BrowserProcess } from "./launcher.js";
-export type { ConsoleMessage, NetworkResponse } from "./page.js";
+export type { ConsoleMessage, NetworkResponse, CookieData } from "./page.js";
