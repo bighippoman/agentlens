@@ -81,7 +81,12 @@ export class BrowserPage {
         };
 
         // ── 1. navigator.webdriver ──
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        // Real non-automated Chrome returns false. Headless returns true.
+        // We set it to false on both instance and prototype.
+        Object.defineProperty(Navigator.prototype, 'webdriver', {
+          get: () => false,
+          configurable: true,
+        });
 
         // ── 2. navigator.plugins (with native-looking toString) ──
         const _mkPlugin = (name, desc, file) => {
