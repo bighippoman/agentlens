@@ -142,7 +142,9 @@ export async function launchBrowser(options?: LaunchOptions): Promise<BrowserPro
     // Anti-detection: look like a real browser
     "--disable-blink-features=AutomationControlled",
     `--window-size=${width},${height}`,
-    ...(headless ? ["--headless=new"] : []),
+    ...(headless
+      ? ["--headless=new"]
+      : ["--window-position=-9999,-9999"]),  // Non-headless: move off-screen
     ...(options?.args ?? []),
     "about:blank",
   ];

@@ -73,15 +73,22 @@ export class AgentPage {
     await waitUntilReady(this.page, { timeout: 10000 });
 
     // Wait for DOM to stabilize (mutations stop for 500ms)
-    await this.page.evaluate(`new Promise(resolve => {
-      let timer;
-      const observer = new MutationObserver(() => {
-        clearTimeout(timer);
-        timer = setTimeout(() => { observer.disconnect(); resolve(); }, 500);
-      });
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-      timer = setTimeout(() => { observer.disconnect(); resolve(); }, 3000);
-    })`);
+    // Wrapped in try/catch — page may navigate (e.g., Cloudflare redirect after challenge)
+    try {
+      await this.page.evaluate(`new Promise(resolve => {
+        let timer;
+        const observer = new MutationObserver(() => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { observer.disconnect(); resolve(); }, 500);
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+        timer = setTimeout(() => { observer.disconnect(); resolve(); }, 3000);
+      })`);
+    } catch {
+      // Page navigated during stability wait — wait for new page to load
+      await this.page.waitForLoad(10000).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1000));
+    }
 
     clearBaseline(this.page);
     const digest = await this.digest();
