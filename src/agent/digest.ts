@@ -30,6 +30,18 @@ export async function getPageDigest(
     detectStatus(page),
   ]);
 
+  // Detect bot protection / challenge pages
+  const isBotBlocked = /just a moment|checking your browser|verify you are human|captcha/i.test(title);
+  if (isBotBlocked) {
+    status.readiness = "blocked";
+    status.blockers.push({
+      type: "overlay",
+      description: "Bot protection / browser challenge (Cloudflare, Akamai, etc.)",
+      dismissable: false,
+      selector: "body",
+    });
+  }
+
   const suggestedAction = computeSuggestedAction(components, status);
   const availableActions = computeAvailableActions(components);
 

@@ -54,7 +54,9 @@ export async function detectStatus(page: BrowserPage): Promise<PageStatus> {
   const hasBlockingModal = blockers.some((b) => b.type === "dialog" || b.type === "modal" || b.type === "overlay");
   const consoleErrors = page.getConsoleMessages().filter((m) => m.type === "error").length;
   const failedRequests = page.getFailedRequests().length;
-  const readiness: PageStatus["readiness"] = hasSpinner ? "loading" : hasBlockingModal ? "blocked" : (consoleErrors > 0 || failedRequests > 0) ? "error" : "ready";
+  // Console errors and minor failed requests are normal on most sites — don't mark as "error"
+  // Only spinners and blocking modals affect readiness
+  const readiness: PageStatus["readiness"] = hasSpinner ? "loading" : hasBlockingModal ? "blocked" : "ready";
   return { readiness, blockers, pendingNetwork: 0, hasSpinner, consoleErrors, failedRequests };
 }
 

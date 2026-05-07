@@ -24,7 +24,7 @@ export async function detectComponents(page: BrowserPage): Promise<PageComponent
     const seen = new Set<Element>();
 
     function textOf(el: Element): string {
-      return ((el as HTMLElement).innerText || el.textContent || "").trim().slice(0, 100);
+      return ((el as HTMLElement).innerText || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 100);
     }
 
     function selectorOf(el: Element): string {
@@ -96,10 +96,17 @@ export async function detectComponents(page: BrowserPage): Promise<PageComponent
       components.push({ type: "toast", name: "Notification", summary: textOf(alert).slice(0, 80), blocking: false, actions: collectActions(alert), selector: selectorOf(alert) });
     }
 
-    // Navigation
+    // Navigation — deduplicate by link set
     const navs = document.querySelectorAll('nav, [role="navigation"], header');
+    const seenNavKeys = new Set<string>();
     for (const nav of navs) {
       if (seen.has(nav) || !isVisible(nav)) continue;
+      // Skip if this nav is inside an already-seen nav, or contains one
+      let isNested = false;
+      for (const s of seen) {
+        if (s !== nav && (s.contains(nav) || nav.contains(s)) && (s as HTMLElement).tagName === "NAV") { isNested = true; break; }
+      }
+      if (isNested) continue;
       seen.add(nav);
       const links = nav.querySelectorAll("a[href]");
       const items: { text: string; href: string; active: boolean }[] = [];
@@ -113,6 +120,10 @@ export async function detectComponents(page: BrowserPage): Promise<PageComponent
         if (items.length >= 10) break;
       }
       if (items.length === 0) continue;
+      // Deduplicate: skip if we already have a nav with the same link texts
+      const navKey = items.map(i => i.text).sort().join("|");
+      if (seenNavKeys.has(navKey)) continue;
+      seenNavKeys.add(navKey);
       const tag = nav.tagName.toLowerCase();
       components.push({ type: "nav", name: tag === "header" ? "Header" : "Navigation", summary: `${items.length} links: ${items.map(i => i.text).join(", ")}`, items, actions: [], selector: selectorOf(nav) });
     }
